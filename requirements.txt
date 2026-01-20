@@ -1,10 +1,11 @@
 lxml
 tqdm
-exejs @ git+https://github.com/3mora2/exejs
+exejs
 httpx
 pathos
 requests
 niquests
 aiohttp
-cloudscraper
+ai-cloudscraper
 cryptography
+psutil
