@@ -413,54 +413,6 @@ class Region(Tse):
             raise TranslatorError('\n'.join([find_info, try_info, str(e)]))
 
 
-class RegionAsync(Tse):
-    def __init__(self, default_region: Optional[str] = None, http_client: str = 'aiohttp'):
-        super().__init__()
-        self.region_http_client = http_client
-        self.get_addr_url = 'https://geolocation.onetrust.com/cookieconsentpub/v1/geo/location'
-        self.get_ip_url = 'https://httpbin.org/ip'  # 'https://get.geojs.io/v1/ip/country'
-        self.ip_api_addr_url = 'http://ip-api.com/json'  # must http.
-        self.ip_tb_add_url = 'https://ip.taobao.com/outGetIpInfo'
-        self.default_region = os.environ.get('translators_default_region', None) or default_region
-
-    async def get_region_of_server(self, if_judge_cn: bool = True, if_print_region: bool = True) -> str:
-        if self.default_region:
-            if if_print_region:
-                sys.stderr.write(f'Using customized region {self.default_region} server backend.\n\n')
-            return ('CN' if self.default_region in ('China', 'CN') else 'EN') if if_judge_cn else self.default_region
-
-        find_info = 'Unable to find server backend.'
-        connect_info = 'Unable to connect the Internet.'
-        try_info = 'Try `os.environ["translators_default_region"] = "EN" or "CN"` before `import translators`'
-
-        _headers_fn = lambda url: self.get_headers(url, if_api=False, if_referer_for_host=True)
-        try:
-            session = Tse.get_client_session(http_client=self.region_http_client)
-            try:
-                response = await session.get(self.get_addr_url, headers=_headers_fn(self.get_addr_url))
-                response_text = await Tse.get_response_text(response, http_client=self.region_http_client)
-                data = json.loads(response_text[9:-2])
-                if if_print_region:
-                    sys.stderr.write(f'Using region {data.get("stateName")} server backend.\n\n')
-                return data.get('country') if if_judge_cn else data.get("stateName")
-            except:
-                response = await session.get(self.get_ip_url, headers=_headers_fn(self.get_ip_url))
-                response_json = await Tse.get_response_json(response, http_client=self.region_http_client)
-                ip_address = response_json['origin']
-                payload = {'ip': ip_address, 'accessKey': 'alibaba-inc'}
-                response = await session.post(self.ip_tb_add_url, headers=_headers_fn(self.ip_tb_add_url), data=payload)
-                response_json = await Tse.get_response_json(response, http_client=self.region_http_client)
-                data = response_json.get('data')
-                return data.get('country_id')  # region_id
-            finally:
-                await Tse.get_session_close(session, http_client=self.region_http_client)
-
-        except ConnectionErrors as e:
-            raise TranslatorError('\n'.join([connect_info, try_info, str(e)]))
-        except Exception as e:
-            raise TranslatorError('\n'.join([find_info, try_info, str(e)]))
-
-
 class GoogleV1(Tse):
     def __init__(self, server_region='EN'):
         super().__init__()
