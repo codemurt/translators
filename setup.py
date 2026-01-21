@@ -1,10 +1,10 @@
 # coding=utf-8
 # author=UlionTse
 
-import pathlib
 import re
-
+import pathlib
 import setuptools
+
 
 NAME = 'translators'
 PACKAGE = 'translators'
@@ -15,6 +15,7 @@ DESCRIPTION = 'Translators is a library that aims to bring free, multiple, enjoy
 LONG_DESCRIPTION = pathlib.Path('README.md').read_text(encoding='utf-8')
 VERSION_TEXT = pathlib.Path(f'{PACKAGE}/__init__.py').read_text(encoding='utf-8')
 VERSION = re.compile('^__version__\\s*=\\s*[\'"]([^\'"]*)[\'"]', re.MULTILINE).search(VERSION_TEXT).group(1)
+
 
 setuptools.setup(
     name=NAME,
@@ -66,12 +67,14 @@ setuptools.setup(
         'lxml>=5.4.0',
         'tqdm>=4.67.1',
         'pathos>=0.3.4',
-        'ai-cloudscraper>=1.2.71',
-        'psutil',
+        # 'cloudscraper>=1.2.71',
+        'ai-cloudscraper>=3.7.6',
         'cryptography>=42.0.4',
+        'brotlicffi>=1.2.0.0',
+        'brotli>=1.2.0',
     ],
     python_requires='>=3.8',
-    extras_require={'pypi': ['build>=1.2.2', 'twine>=6.1.0', 'setuptools>=75.3.0']},
+    extras_require={'pypi': ['build>=1.4.0', 'twine>=6.2.0', 'setuptools>=75.3.0']},
     zip_safe=False,
     entry_points={
         'console_scripts':

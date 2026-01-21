@@ -1,11 +1,12 @@
 lxml
 tqdm
 exejs
-httpx
 pathos
+httpx
+aiohttp
 requests
 niquests
-aiohttp
 ai-cloudscraper
 cryptography
-psutil
+brotlicffi
+brotli

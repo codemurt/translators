@@ -48,6 +48,7 @@ import requests
 import niquests
 import cloudscraper
 import lxml.etree as lxml_etree
+import pathos.threading as pathos_threading
 import pathos.multiprocessing as pathos_multiprocessing
 import cryptography.hazmat.primitives.ciphers as cry_ciphers
 import cryptography.hazmat.primitives.padding as cry_padding
@@ -242,7 +243,7 @@ class Tse:
                     warnings.warn(f'GetLanguageMapError: {str(e)}.\nThe function make_temp_language_map() works.')
                 return make_temp_language_map(kwargs.get('from_language'), kwargs.get('to_language'), kwargs.get('default_from_language'))
         return _wrapper
-    
+
     @staticmethod
     def check_input_limit(query_text: str, input_limit: int) -> None:
         if len(query_text) > input_limit:
@@ -1107,7 +1108,7 @@ class YoudaoV2(Tse):
     def decrypt_by_aes128_cbc(self, data: bytes, key: bytes, iv: bytes, if_padding: bool = True) -> str:
         algorithm = cry_ciphers.base.modes.algorithms.AES128(key=key)
         mode = cry_ciphers.base.modes.CBC(initialization_vector=iv)
-        block_size = cry_ciphers.base.modes.algorithms.AES.block_size
+        block_size = cry_ciphers.base.modes.algorithms.AES128.block_size
         cipher = cry_ciphers.Cipher(algorithm=algorithm, mode=mode)
         decryptor = cipher.decryptor()
         decrypted_data = decryptor.update(data)
@@ -2238,7 +2239,7 @@ class Deepl(Tse):
         time.sleep(sleep_seconds)
         self.request_id += 3
         self.query_count += 1
-        return data if is_detail_result else ' '.join(item['beams'][0]['sentences'][0]["text"] for item in data['result']['translations'])  # either ' ' or '\n'.
+        return data if is_detail_result else '\n'.join(item['beams'][0]['sentences'][0]["text"] for item in data['result']['translations'])  # either ' ' or '\n'.
 
 
 class YandexV1(Tse):
@@ -2588,7 +2589,7 @@ class Iciba(Tse):
         self.api_url = 'https://ifanyi.iciba.com/index.php'
         self.host_headers = self.get_headers(self.host_url, if_api=False, if_ajax_for_api=False)
         self.api_headers = self.get_headers(self.host_url, if_api=True, if_ajax_for_api=True, if_json_for_api=False)
-        self.language_headers = self.get_headers(self.host_url, if_api=False, if_json_for_api=True)
+        self.language_headers = self.get_headers(self.host_url, if_api=True, if_json_for_api=True)
         self.language_map = None
         self.session = None
         self.sign_key = '6dVjYLFyzfkFkk'  # 'ifanyiweb8hc9s98e'
@@ -3269,7 +3270,8 @@ class TranslateCom(Tse):
         if from_language == 'auto':
             detect_form = {'text_to_translate': query_text}
             r_detect = self.session.post(self.lang_detect_url, data=detect_form, headers=self.api_headers, timeout=timeout)
-            from_language = r_detect.json()['language']
+            detect_data = r_detect.json()
+            from_language = detect_data.get('language', self.default_from_language)
 
         from_language, to_language = self.check_language(from_language, to_language, self.language_map, output_zh=self.output_zh)
 
@@ -4266,13 +4268,13 @@ class MyMemory(Tse):
         self.default_from_language = self.output_zh
 
     @Tse.debug_language_map
-    def get_language_map(self, myMemory_host_html: str, matecat_lang_url: str, ss: SessionType, headers: dict,
+    def get_language_map(self, host_html: str, lang_url: str, ss: SessionType, headers: dict,
                          timeout: Optional[float], **kwargs: LangMapKwargsType) -> dict:
-        et = lxml_etree.HTML(myMemory_host_html)
+        et = lxml_etree.HTML(host_html)
         lang_list = et.xpath('//*[@id="select_source_mm"]/option/@value')[2:]
         self.myMemory_language_list = sorted(list(set(lang_list)))
 
-        lang_d_list = ss.get(matecat_lang_url, headers=headers, timeout=timeout).json()
+        lang_d_list = ss.get(lang_url, headers=headers, timeout=timeout).json()
         self.mateCat_language_list = sorted(list(set([item['code'] for item in lang_d_list])))
 
         lang_list = sorted(list(set(self.myMemory_language_list + self.mateCat_language_list)))
@@ -4438,7 +4440,7 @@ class Mirai(Tse):
             'userId': self.user_id,
             'transId': self.trans_id,
             'uniqueId': self.tran_key,
-            'date': f'{datetime.datetime.utcnow().isoformat()[:-3]}Z',
+            'date': f'{datetime.datetime.now(datetime.UTC).isoformat()[:-9]}Z',
         }
         _ = self.session.post(self.trace_url, json=trace_data, headers=self.api_text_headers, timeout=timeout)
 
@@ -5650,6 +5652,7 @@ class Hujiang(Tse):
         self.query_count += 1
         return data if is_detail_result else data['data']['content']  # supported by baidu.
 
+
 class Xunjie(Tse):
     def __init__(self):
         super().__init__()
@@ -5782,9 +5785,11 @@ class Xunjie(Tse):
             'length': 4,
             'fontsize': 12,
         }
-        data_sign = (f'deviceid={device_id_md5}&fanyicon={query_text}&fanyifrom={from_language}&fanyito={to_language}'
-                     f'&fontsize={pay_add["fontsize"]}&height={pay_add["height"]}&length={pay_add["length"]}'
-                     f'&productinfo={product_info}&timestamp={tm}&width={pay_add["width"]}{self.api_sign_tail}')
+        data_sign = (
+            f'deviceid={device_id_md5}&fanyicon={query_text}&fanyifrom={from_language}&fanyito={to_language}'
+            f'&fontsize={pay_add["fontsize"]}&height={pay_add["height"]}&length={pay_add["length"]}'
+            f'&productinfo={product_info}&timestamp={tm}&width={pay_add["width"]}{self.api_sign_tail}'
+        )
         data_sign_md5 = hashlib.md5(data_sign.encode()).hexdigest()
         pay_add.update({'datasign': data_sign_md5})
         payload.update(pay_add)
@@ -5987,30 +5992,29 @@ class TranslatorsServer:
             'tilde': self.tilde, 'translateCom': self.translateCom, 'translateMe': self.translateMe, 'utibet': self.utibet, 'volcEngine': self.volcEngine,
             'xunjie': self.xunjie, 'yandex': self.yandex, 'yeekit': self.yeekit, 'youdao': self.youdao,
         }
-        self.translators_list = ['alibaba', 'apertium', 'argos', 'baidu', 'bing', 'caiyun', 'cloudTranslation', 'deepl',
-                                 'elia', 'google',
-                                 'hujiang', 'iciba', 'iflytek', 'iflyrec', 'itranslate', 'judic', 'languageWire',
-                                 'lingvanex', 'niutrans',
-                                 'mglip', 'mirai', 'modernMt', 'myMemory', 'papago', 'qqFanyi', 'qqTranSmart',
-                                 'reverso', 'sogou', 'sysTran',
-                                 'tilde', 'translateCom', 'translateMe', 'utibet', 'volcEngine', 'yandex', 'yeekit',
-                                 'youdao']
         self.translators_pool = list(self.translators_dict.keys())
-        self.not_en_langs = {'utibet': 'ti', 'mglip': 'mon'}
-        self.not_zh_langs = {'languageWire': 'fr', 'tilde': 'fr', 'elia': 'fr', 'apertium': 'spa', 'judic': 'de'}
+        self.not_en_langs = {"utibet": "ti", "mglip": "mon"}
+        self.not_zh_langs = {
+            "languageWire": "fr",
+            "tilde": "fr",
+            "elia": "fr",
+            "apertium": "spa",
+            "judic": "de",
+        }
         self.pre_acceleration_label = 0
         self.example_query_text = '你好。\n欢迎你！'
         self.success_translators_pool = []
         self.failure_translators_pool = []
 
-    def translate_text(self,
-                       query_text: str,
-                       translator: str = 'alibaba',
-                       from_language: str = 'auto',
-                       to_language: str = 'en',
-                       if_use_preacceleration: bool = False,
-                       **kwargs: ApiKwargsType,
-                       ) -> Union[str, dict]:
+    def translate_text(
+        self,
+        query_text: str,
+        translator: str = 'alibaba',
+        from_language: str = 'auto',
+        to_language: str = 'en',
+        if_use_preacceleration: bool = False,
+        **kwargs: ApiKwargsType,
+    ) -> Union[str, dict]:
         """
         :param query_text: str, must.
         :param translator: str, default 'alibaba'.
@@ -6046,25 +6050,27 @@ class TranslatorsServer:
         if not self.pre_acceleration_label and if_use_preacceleration:
             _ = self.preaccelerate()
 
-        return self.translators_dict[translator](query_text=query_text, from_language=from_language,
-                                                 to_language=to_language, **kwargs)
+        return self.translators_dict[translator](query_text=query_text, from_language=from_language, to_language=to_language, **kwargs)
 
-    def translate_html(self,
-                       html_text: str,
-                       translator: str = 'alibaba',
-                       from_language: str = 'auto',
-                       to_language: str = 'en',
-                       n_jobs: int = 1,
-                       if_use_preacceleration: bool = False,
-                       **kwargs: ApiKwargsType,
-                       ) -> str:
+    def translate_html(
+        self,
+        html_text: str,
+        translator: str = 'alibaba',
+        from_language: str = 'auto',
+        to_language: str = 'en',
+        parallel_way: str = 'threading',
+        n_jobs: int = 4,
+        if_use_preacceleration: bool = False,
+        **kwargs: ApiKwargsType,
+    ) -> str:
         """
         Translate the displayed content of html without changing the html structure.
         :param html_text: str, must.
         :param translator: str, default 'alibaba'.
         :param from_language: str, default 'auto'.
         :param to_language: str, default 'en'.
-        :param n_jobs: int, default 1. -1 means os.cpu_cnt().
+        :param parallel_way: str, default 'threading'. Union['threading', 'multiprocessing']
+        :param n_jobs: int, default 4. -1 means os.cpu_cnt().
         :param if_use_preacceleration: bool, default False.
         :param **kwargs:
                 :param is_detail_result: bool, default False, must False.
@@ -6091,20 +6097,37 @@ class TranslatorsServer:
 
         if translator not in self.translators_pool or kwargs.get('is_detail_result', False) or n_jobs > self.cpu_cnt:
             raise TranslatorError
+        if parallel_way not in ['threading', 'multiprocessing']:
+            raise TranslatorError
 
         if not self.pre_acceleration_label and if_use_preacceleration:
             _ = self.preaccelerate()
 
-        def _translate_text(sentence: str) -> Tuple[str, str]:
-            return sentence, self.translators_dict[translator](query_text=sentence, from_language=from_language,
-                                                               to_language=to_language, **kwargs)
+        n_jobs = self.cpu_cnt if n_jobs <= 0 else n_jobs
+
+        def _translate_sentence(sentence: str) -> Tuple[str, str]:
+            # return sentence, self.translators_dict[translator](query_text=sentence, from_language=from_language, to_language=to_language, **kwargs)
+            result = self.translate_text(
+                query_text=sentence,
+                translator=translator,
+                from_language=from_language,
+                to_language=to_language,
+                if_use_preacceleration=False,
+                **kwargs
+            )
+            return sentence, result
 
         pattern = re.compile('>([\\s\\S]*?)<')  # not perfect
         sentence_list = list(set(pattern.findall(html_text)))
 
-        n_jobs = self.cpu_cnt if n_jobs <= 0 else n_jobs
-        with pathos_multiprocessing.ProcessPool(n_jobs) as pool:
-            result_list = pool.map(_translate_text, sentence_list)
+
+        if parallel_way == 'threading':
+            parallel_pool = pathos_threading.ThreadPool(nodes=n_jobs)
+        else:
+            parallel_pool = pathos_multiprocessing.ProcessPool(nodes=n_jobs)
+
+        with parallel_pool as pool:
+            result_list = pool.map(_translate_sentence, sentence_list)
 
         result_dict = {text: f'>{ts_text}<' for text, ts_text in result_list}
         _get_result_func = lambda k: result_dict.get(k.group(1), '')
@@ -6138,10 +6161,13 @@ class TranslatorsServer:
 
         self.example_query_text = kwargs.get('example_query_text', self.example_query_text)
 
-        sys.stderr.write('Preacceleration-Process will take a few minutes.\n')
-        sys.stderr.write('Tips: The smaller `timeout` value, the fewer translators pass the test '
-                         'and the less time it takes to preaccelerate. However, the slow speed of '
-                         'preacceleration does not mean the slow speed of later translation.\n\n')
+        preaccelerate_info = (
+            'Preacceleration-Process will take a few minutes.\n'
+            'Tips: The smaller `timeout` value, the fewer translators pass the test '
+            'and the less time it takes to preaccelerate. However, the slow speed of '
+            'preacceleration does not mean the slow speed of later translation.\n\n'
+        )
+        sys.stderr.write(preaccelerate_info)
 
         for i in tqdm.tqdm(range(len(self.translators_pool)), desc='Preacceleration Process', ncols=80):
             _ts = self.translators_pool[i]
@@ -6154,7 +6180,7 @@ class TranslatorsServer:
             self.pre_acceleration_label += 1
         return {'success': self.success_translators_pool, 'failure': self.failure_translators_pool}
 
-    def speedtest(self, **kwargs: dict[str, str]) -> None:
+    def speedtest(self, **kwargs: List[str]) -> None:
         if self.pre_acceleration_label < 1:
             raise TranslatorError('Preacceleration first.')
 

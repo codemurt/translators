@@ -553,4 +553,7 @@
 - Added multiple translators: `lara()`, `xunjie()`
 - Enhanced multiple translators: `argos()`, `iciba()`, `lingvanex()`, `youdao()`
 - Enhanced `cli` about input_file
+
+## Version 6.0.3
+- Added async support (#175, #179)
 - Enhanced `translate_html` about parallel
