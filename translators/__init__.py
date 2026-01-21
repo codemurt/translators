@@ -1,4 +1,4 @@
-__version__ = "6.0.3"
+__version__ = "6.0.4"
 __author__ = "UlionTse"
 
 from translators.server import (
@@ -46,4 +46,5 @@ __all__ = (
     "get_languages",
     "get_region_of_server",
     "preaccelerate_and_speedtest",
+    "close_with_async",
 )

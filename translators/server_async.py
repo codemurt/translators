@@ -47,7 +47,6 @@ import exejs
 import httpx
 import aiohttp
 import requests
-import niquests
 import cloudscraper
 import lxml.etree as lxml_etree
 import cryptography.hazmat.primitives.ciphers as cry_ciphers
@@ -55,7 +54,7 @@ import cryptography.hazmat.primitives.padding as cry_padding
 import cryptography.hazmat.primitives.hashes as cry_hashes
 import cryptography.hazmat.primitives.serialization as cry_serialization
 import cryptography.hazmat.primitives.asymmetric.padding as cry_asym_padding
-from tests.test_init import kwargs
+
 
 SessionType = Union[aiohttp.ClientSession, httpx.AsyncClient]
 ResponseType = Union[aiohttp.ClientResponse, httpx.Response]
@@ -63,10 +62,9 @@ LangMapKwargsType = Union[str, bool]
 ApiKwargsType = Union[str, int, float, bool, dict, SessionType]
 
 ConnectionErrors = (
+    httpx.ConnectError,
     aiohttp.ClientConnectorError,
     aiohttp.ClientConnectionError,
-    httpx.ConnectError,
-    niquests.exceptions.ConnectionError,
 )
 
 __all__ = [
