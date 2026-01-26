@@ -21,7 +21,6 @@
 - [Command Line Interface](#Command-Line-Interface)
 - [Supported Languages](#supported-languages)
 - [Debug Tips](#debug-tips)
-- [Star History](#star-history)
 
 ## Supported Translation Services
 
@@ -270,6 +269,3 @@ options:
 1. Check whether the network is connected correctly.
 2. Check the proxy are enabled on your computer. If it is enabled, try turning it off or otherwise. 
 
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=UlionTse/translators&type=Date)](https://star-history.com/#UlionTse/translators&Date)

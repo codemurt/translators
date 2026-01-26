@@ -250,9 +250,3 @@ translate_text(query_text: str, translator: str = 'bing', from_language: str = '
 
 </details>
 
-<details>
-<summary>Star History</summary>
-
-[![Star History Chart](https://api.star-history.com/svg?repos=UlionTse/translators&type=Date)](https://star-history.com/#UlionTse/translators&Date)
-
-</details>
