@@ -2497,6 +2497,8 @@ class YandexV1(Tse):
 
 
 class YandexV2(Tse):
+    udm_language = 'udm'
+
     def __init__(self):
         super().__init__()
         self.begin_time = time.time()
@@ -2529,7 +2531,20 @@ class YandexV2(Tse):
         lang_data = await self.get_request_data(http_client, ss=ss, method='getLangs', params={}, timeout=timeout)
         for k, v in [lang_pair.split('-') for lang_pair in lang_data['dirs']]:
             lang_map.setdefault(k, []).append(v)
-        return lang_map
+        return self.patch_language_map(lang_map)
+
+    def patch_language_map(self, language_map: dict) -> dict:
+        if self.udm_language in language_map:
+            return {
+                lang: list(dict.fromkeys(targets))
+                for lang, targets in language_map.items()
+            }
+
+        all_langs = list(language_map.keys())
+        language_map[self.udm_language] = all_langs.copy()
+        for lang in all_langs:
+            language_map[lang] = list(dict.fromkeys(language_map.get(lang, []) + [self.udm_language]))
+        return language_map
 
     @Tse.time_stat
     @Tse.check_query
